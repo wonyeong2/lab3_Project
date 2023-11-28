@@ -78,6 +78,10 @@ int option(char *argv){  //실행 인자 포함 여부 확인 / 0=없음, -1 = �
         return opt;
     }
     for(int i=0; argv[i] != NULL; i++){
+        if (argv[i] == '&'){
+            opt = -1;
+            return opt;
+        }
         if (argv[i] == '|'){
             opt = 1;
             return opt;
@@ -105,7 +109,12 @@ void run(int i, int opt, char **argv){
 
     if (pid == 0){  //child
         //0 = 없음, -1 = 백그라운드(&), 1 = 파이프(|), 2 = 파일 재지향(<), 3 = 파일 재지향(>)
-        if(opt == 0){ // 없음
+        if(opt == -1){
+            printf("%s 백그라운드로 실행\n",argv[i]);
+            selectCmd(i, argv);
+            exit(0);
+        }
+        else if(opt == 0){ // 없음
             selectCmd(i, argv);
             exit(0);
         }
@@ -141,6 +150,22 @@ void run(int i, int opt, char **argv){
             }
             selectCmd(i, argv);
             exit(0);
+        }
+        else if (pid>0){
+            if(opt >= 0){
+                wait(pid);
+                }
+            if(!strcmp(argv[i], "cd")){
+                if(argv[i+1] == NULL){
+                    fprintf(stderr, "few argument\n");
+                }
+                else{
+                    cmd_cd(argv[i+1]);
+                }
+            }
+        }
+        else{
+            perror("fork failed");
         }
     }
 
@@ -203,13 +228,56 @@ void selectCmd(int i, char **argv){
             cmd_cat(argv[i+1]);
         }
     }
-    else if(!strcmp(argv[i], "ls")){
-        cmd_ls();
-    }
     else if(!strcmp(argv[i], "pwd")){
         cmd_pwd();
     }
+    else if(!strcmp(argv[i], "ls")){
+        cmd_ls();
+    }
+    else if(!strcmp(argv[i], "mkdir")){
+        if(argv[i+1]==NULL){
+            fprintf(stderr, "few argument\n");
+        }
+        else{
+            cmd_mkdir(argv[i+1]);
+        }
+    }
+    else if(!strcmp(argv[i], "rmdir")){
+        if(argv[i+1]==NULL){
+            fprintf(stderr, "few argument\n");
+        }
+        else{
+            cmd_rmdir(argv[i+1]);
+        }
+    }
+    else if(!strcmp(argv[i], "ln")){
+            cmd_ln(argv[i+1], argv[i+2]);
+    }
 }
+
+void cmd_cd(char *path) {
+    if(chdir(path) < 0) {
+        perror("chdir");
+        exit(1);
+    }
+    else {
+        printf("move to ..");
+        cmd_pwd();
+    }
+}
+
+void cmd_rmdir(char *argv) {
+    if(rmdir(argv) < 0) {
+        perror("rmdir");
+    }
+}
+
+void cmd_mkdir(char *path) {
+    if(mkdir(path, 0777) < 0) {
+        perror("mkdir");
+    }
+}
+
 
 void cmd_cat(char *argv){
         char buf[BUFSIZE];
@@ -248,4 +316,11 @@ void cmd_pwd() {
     char buf[1024];
     getcwd(buf, 1024);
     printf("%s\n", buf);
+}
+
+void cmd_ln(char *argv1, char *argv2){
+	if(link(argv1, argv2)<0){ //원본 argv1의 링크 argv2를 생성
+		perror("link");
+		exit(1);
+	}
 }
