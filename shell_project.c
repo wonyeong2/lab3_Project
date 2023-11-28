@@ -11,6 +11,20 @@
 
 #define BUFSIZE 512
 
+void ctrl_c(int sig){
+    signal(sig, SIG_IGN);
+    printf("Ctrl_C: 쉘 종료\n");
+    exit(1);
+}
+void ctrl_z(int sig, int flag){
+    signal(sig, SIG_IGN);
+    printf("Ctrl_Z: 쉘 일시정지\n");
+    printf(" fg 명령으로 재개 가능\n");
+    raise(SIGSTOP);
+    printf(" 쉘 재개\n");
+    signal(sig, ctrl_z);
+}
+
 void pwd_print(){
     char buf[1024];
     getcwd(buf, 1024);
@@ -36,6 +50,15 @@ void main() {
     char buf[256];
     char *argv[50];
     int narg;
+
+    struct sigaction ctrlc_act = { .sa_handler = ctrl_c };
+    struct sigaction ctrlz_act = { .sa_handler = ctrl_z };
+    ctrlc_act.sa_handler = ctrl_c; 
+    ctrlz_act.sa_handler = ctrl_z;
+    
+    //인터럽트 키
+    sigaction(SIGINT, &ctrlc_act, NULL); 
+    sigaction(SIGTSTP, &ctrlz_act, NULL);
 
     printf("Start shell program\n");
 
@@ -253,6 +276,15 @@ void selectCmd(int i, char **argv){
     else if(!strcmp(argv[i], "ln")){
             cmd_ln(argv[i+1], argv[i+2]);
     }
+    else if(!strcmp(argv[i], "cp")){
+	    cmd_cp(argv[i+1], argv[i+2]);
+    }
+    else if(!strcmp(argv[i], "rm")){
+	    cmd_rm(argv[i+1]);
+    }
+    else if(!strcmp(argv[i], "mv")){
+	    cmd_mv(argv[i+1], argv[i+2]);
+    }
 }
 
 void cmd_cd(char *path) {
@@ -323,4 +355,38 @@ void cmd_ln(char *argv1, char *argv2){
 		perror("link");
 		exit(1);
 	}
+}
+
+void cmd_cp(char *argv1, char *argv2){
+	char buf[BUFSIZE];
+	int argv1_fd, argv2_fd; // 파일 디스크립터
+	ssize_t readCount; 
+	mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH; /* == 0644 */
+	
+	if((argv1_fd = open(argv1,O_RDONLY)) == -1){ // 해당 파일(argv1)를 읽기 전용으로 개방
+		perror("open"); 
+		exit(1);
+	}
+	if((argv2_fd = creat(argv2,mode)) == -1){ // 파일(argv2) 생성
+		perror("creat"); 
+		exit(1);
+	}
+	while((readCount = read(argv1_fd, buf, BUFSIZE)) > 0){ //문자를 buf에 저장
+		write(argv2_fd, buf, readCount); // buf에 저장된 문자를 argv2에 씀
+	}
+	if(readCount < 0){
+		perror("read");
+        	exit(1);
+	}
+	close(argv1_fd);
+	close(argv2_fd);	
+}
+
+void cmd_rm(char *argv){
+	remove(argv); //한 파일을 시스템으로부터 제거하는 명령
+}
+
+void cmd_mv(char *argv, char *path){
+	cmd_cp(argv,path); //파일을 path 경로에 복사
+	cmd_rm(argv); //기존 파일을 삭제
 }
