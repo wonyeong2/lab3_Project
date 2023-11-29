@@ -13,13 +13,13 @@
 
 void ctrl_c(int sig){
     signal(sig, SIG_IGN);
-    printf("Ctrl_C: 쉘 종료\n");
+    printf(" Ctrl_C: 쉘 종료\n");
     exit(1);
 }
 void ctrl_z(int sig, int flag){
     signal(sig, SIG_IGN);
-    printf("Ctrl_Z: 쉘 일시정지\n");
-    printf(" fg 명령으로 재개 가능\n");
+    printf(" Ctrl_Z: 쉘 일시정지\n");
+    printf("재개하려면 'fg' 명령어를 입력하세요.\n");
     raise(SIGSTOP);
     printf(" 쉘 재개\n");
     signal(sig, ctrl_z);
